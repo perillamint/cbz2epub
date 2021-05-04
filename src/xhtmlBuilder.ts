@@ -1,8 +1,9 @@
 import {BookMeta, Page, Chapter, xmlEntry} from './types';
 import xml from 'xml';
 import sizeOf from 'image-size';
+import path from 'path';
 
-export async function xhtmlBuilder(img: Buffer, imgpath: string, imgalt: string, meta: BookMeta): Promise<string> {
+export async function xhtmlBuilder(img: Buffer, imgpath: string, imgalt: string, csspath: string, meta: BookMeta): Promise<string> {
     const imgSz = sizeOf(img);
     const xhtmlTemplate: xmlEntry[] = [{
         html: [{
@@ -15,6 +16,14 @@ export async function xhtmlBuilder(img: Buffer, imgpath: string, imgalt: string,
         }, {
             head: [{
                 title: meta.title,
+            }, {
+                link: [{
+                    _attr: {
+                        href: csspath,
+                        rel: 'stylesheet',
+                        type: 'text/css',
+                    }
+                }]
             }, {
                 meta: [{
                     _attr: {

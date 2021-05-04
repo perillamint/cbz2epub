@@ -15,6 +15,16 @@ const xhtmlBasePath = path.join(basePath, 'xhtml');
 const imgBasePath = path.join(basePath, 'img');
 const cssBasePath = path.join(basePath, 'css');
 
+const cssList = [{
+    file: 'main.css',
+    path: 'assets/main.css',
+    epubPath: path.join(cssBasePath, 'main.css'),
+}, {
+    file: 'page.css',
+    path: 'assets/page.css',
+    epubPath: path.join(cssBasePath, 'page.css'),
+}];
+
 export class EPubBuilder {
     private archive;
     private chapters: Chapter[] = [];
@@ -223,16 +233,17 @@ export class EPubBuilder {
 
         ((manifest[0].item as xmlEntry[])[0]._attr as xmlEntry)['properties'] = 'cover-image'
        
-        // TODO: Un-hardcode thios
-        manifest.push({
-            item: [{
-                _attr: {
-                    href: 'css/main.css',
-                    id: 'css_main_css',
-                    'media-type': 'text/css',
-                }
-            }]
-        });
+        for(const css of cssList) {
+            manifest.push({
+                item: [{
+                    _attr: {
+                        href: path.relative(basePath, css.epubPath),
+                        id: css.file.replaceAll('.', '_'),
+                        'media-type': 'text/css',
+                    },
+                }],
+            });
+        }
 
         manifest.push({
             item: [{
@@ -305,7 +316,8 @@ export class EPubBuilder {
         this.archive.append(data, {
             name: imgPath,
         });
-        this.archive.append(await xhtmlBuilder(data, imgPathRel, alt, this.meta), {
+        const csspath = path.relative(xhtmlBasePath, path.join(cssBasePath, 'page.css'));
+        this.archive.append(await xhtmlBuilder(data, imgPathRel, alt, csspath, this.meta), {
             name: xhtmlPath
         });
     }
@@ -356,7 +368,8 @@ export class EPubBuilder {
         this.archive.append(data, {
             name: imgPath,
         });
-        this.archive.append(await xhtmlBuilder(data, imgPathRel, alt, this.meta), {
+        const csspath = path.relative(xhtmlBasePath, path.join(cssBasePath, 'page.css'));
+        this.archive.append(await xhtmlBuilder(data, imgPathRel, alt, csspath, this.meta), {
             name: xhtmlPath
         });
     }
@@ -396,7 +409,6 @@ export class EPubBuilder {
                 }, {
                     link: [{
                         _attr: {
-                            // TODO: Unhardcode the path
                             href: path.relative(xhtmlBasePath, path.join(cssBasePath, 'main.css')),
                             rel: 'stylesheet',
                             type: 'text/css',
@@ -520,9 +532,11 @@ export class EPubBuilder {
         });
 
         // Css
-        this.archive.append(await fs.readFile('./assets/main.css'), {
-            name: path.join(cssBasePath, 'main.css'),
-        });
+        for(const css of cssList) {
+            this.archive.append(await fs.readFile(css.path), {
+                name: css.epubPath,
+            });
+        }
 
         this.archive.finalize();
     }

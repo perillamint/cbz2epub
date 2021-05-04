@@ -10,6 +10,11 @@ import moment from 'moment-timezone';
 import {BookMeta, Page, Chapter, xmlEntry} from './types';
 import {xhtmlBuilder} from './xhtmlBuilder';
 
+const basePath = 'OPS';
+const xhtmlBasePath = path.join(basePath, 'xhtml');
+const imgBasePath = path.join(basePath, 'img');
+const cssBasePath = path.join(basePath, 'css');
+
 export class EPubBuilder {
     private archive;
     private chapters: Chapter[] = [];
@@ -39,7 +44,7 @@ export class EPubBuilder {
                 },
             }, {
                 rootfiles: [{
-                    rootfile: {_attr: {'full-path': 'OPS/content.opf', 'media-type': 'application/oebps-package+xml'}}
+                    rootfile: {_attr: {'full-path': path.join(basePath, 'content.opf'), 'media-type': 'application/oebps-package+xml'}}
                 }],
             }],
         };
@@ -110,7 +115,7 @@ export class EPubBuilder {
                     }, {
                         'ncx:content': [{
                             _attr: {
-                                src: path.relative('OPS', this.chapters[0].pages[0].xhtmlPath),
+                                src: path.relative(basePath, this.chapters[0].pages[0].xhtmlPath),
                             },
                         }],
                     }],
@@ -176,12 +181,14 @@ export class EPubBuilder {
             },
         }];
 
+        let pageCnt = 0;
         for(const chapter of this.chapters) {
             for(const page of chapter.pages) {
+                pageCnt += 1;
                 manifest.push({
                     item: [{
                         _attr: {
-                            href: path.relative('OPS/', page.path),
+                            href: path.relative(basePath, page.path),
                             id: page.id,
                             'media-type': page.mime,
                         },
@@ -190,24 +197,31 @@ export class EPubBuilder {
                 manifest.push({
                     item: [{
                         _attr: {
-                            href: path.relative('OPS', page.xhtmlPath),
+                            href: path.relative(basePath, page.xhtmlPath),
                             id: page.xhtmlId,
                             'media-type': 'application/xhtml+xml',
                         }
                     }]
                 })
+                let pageSpread: string | null = null;
+
+                if (this.meta.direction === 'rtl') {
+                    pageSpread = pageCnt % 2 === 1 ? 'page-spread-left' : 'page-spread-right';
+                } else if (this.meta.direction === 'ltr') {
+                    pageSpread = pageCnt % 2 === 1 ? 'page-spread-right' : 'page-spread-left';
+                }
                 spine.push({
                     itemref: [{
                         _attr: {
                             idref: page.xhtmlId,
-                            // TODO: properties: page-spread-left|right
+                            properties: pageSpread === null ? '' : pageSpread,
                         },
                     }],
                 });
             }
         }
 
-        //((manifest[0].item as xmlEntry[])[0]._attr as xmlEntry)['properties'] = 'cover-image'
+        ((manifest[0].item as xmlEntry[])[0]._attr as xmlEntry)['properties'] = 'cover-image'
        
         // TODO: Un-hardcode thios
         manifest.push({
@@ -271,9 +285,9 @@ export class EPubBuilder {
 
     async addCover(data: Buffer) {
         const mime = await FileType.fromBuffer(data);
-        const imgPath = `OPS/img/cover.${mime!.ext}`;
-        const imgPathRel = path.relative('OPS/xhtml', imgPath);
-        const xhtmlPath = path.join('OPS/xhtml', 'cover.xhtml');
+        const imgPath = path.join(basePath, `img/cover.${mime!.ext}`);
+        const imgPathRel = path.relative(xhtmlBasePath, imgPath);
+        const xhtmlPath = path.join(xhtmlBasePath, 'cover.xhtml');
         const alt = 'Sorry, no OCR\'ed ALT available for now.';
         this.cover = {
             mime: mime!.mime,
@@ -320,9 +334,9 @@ export class EPubBuilder {
             filename = `${id}.${mime!.ext}`;
         }
 
-        const imgPath = path.join('OPS/img', filename!);
-        const imgPathRel = path.relative('OPS/xhtml', imgPath);
-        const xhtmlPath = path.join('OPS/xhtml', `${filename}.xhtml`);
+        const imgPath = path.join(imgBasePath, filename!);
+        const imgPathRel = path.relative(xhtmlBasePath, imgPath);
+        const xhtmlPath = path.join(xhtmlBasePath, `${filename}.xhtml`);
 
         if (this.chapters[chapterIdx] == null) {
             this.chapters[chapterIdx] = {
@@ -363,7 +377,7 @@ export class EPubBuilder {
                         _attr: {
                             alt: `Image ID: ${page.id}, sorry, no proper OCRed ALT here.`,
                             class: 'w100',
-                            src: path.relative('OPS/Text', page.path),
+                            src: path.relative(xhtmlBasePath, page.path),
                         }
                     }],
                 }],
@@ -383,7 +397,7 @@ export class EPubBuilder {
                     link: [{
                         _attr: {
                             // TODO: Unhardcode the path
-                            href: path.relative('OPS/Text', 'OPS/Styles/style.css'),
+                            href: path.relative(xhtmlBasePath, path.join(cssBasePath, 'main.css')),
                             rel: 'stylesheet',
                             type: 'text/css',
                         }
@@ -414,7 +428,7 @@ export class EPubBuilder {
                     li: [{
                         a: [{
                             _attr: {
-                                href: `${path.relative('OPS/', page.xhtmlPath)}`,
+                                href: `${path.relative(basePath, page.xhtmlPath)}`,
                             }
                         }, `${pagecnt}`],
                     }],
@@ -424,7 +438,7 @@ export class EPubBuilder {
                 li: [{
                     a: [{
                         _attr: {
-                            href: path.relative('OPS/', chapter.pages[0].xhtmlPath),
+                            href: path.relative(basePath, chapter.pages[0].xhtmlPath),
                         }
                     }, chapter.name],
                 }],
@@ -494,20 +508,20 @@ export class EPubBuilder {
 
         // content.opf
         this.archive.append(this.getOpf(), {
-            name: 'OPS/content.opf',
+            name: path.join(basePath, 'content.opf'),
         });
 
         // Nav
         this.archive.append(await this.getNav(), {
-            name: 'OPS/nav.xhtml',
+            name: path.join(basePath, 'nav.xhtml'),
         });
         this.archive.append(this.getNcx(), {
-            name: 'OPS/toc.ncx',
+            name: path.join(basePath, 'toc.ncx'),
         });
 
         // Css
         this.archive.append(await fs.readFile('./assets/main.css'), {
-            name: 'OPS/css/main.css',
+            name: path.join(cssBasePath, 'main.css'),
         });
 
         this.archive.finalize();

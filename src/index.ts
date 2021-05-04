@@ -8,7 +8,7 @@ async function main() {
         title: 'testbook',
         language: 'ko',
         creator: 'testauthor',
-        direction: 'default',
+        direction: 'rtl',
     });
     const zip = new StreamZip.async({
         file: './test.cbz',
